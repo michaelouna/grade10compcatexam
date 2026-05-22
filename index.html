@@ -254,11 +254,29 @@
           </div>
         </div>
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
-          <div class="p-3 bg-amber-50 text-amber-600 rounded-xl"><i data-lucide="check-square" class="w-6 h-6"></i></div>
+          <div class="p-3 bg-amber-50 text-amber-600 rounded-xl"><i data-lucide="settings" class="w-6 h-6"></i></div>
           <div>
-            <p class="text-xs text-slate-500 font-semibold uppercase">Needs Grading</p>
-            <p id="stat-pending" class="text-2xl font-bold text-slate-900">0</p>
+            <p class="text-xs text-slate-500 font-semibold uppercase">System Configuration</p>
+            <p class="text-sm font-bold text-emerald-600">Auto-Mark Active</p>
           </div>
+        </div>
+      </div>
+
+      <!-- Settings Panel for API Keys (Optional Advanced AI Integration) -->
+      <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+        <div class="flex items-center space-x-2 text-violet-700">
+          <i data-lucide="sparkles" class="w-5 h-5"></i>
+          <h3 class="font-bold text-sm uppercase tracking-wide">Advanced AI Grading Configuration (Optional)</h3>
+        </div>
+        <p class="text-xs text-slate-500 leading-relaxed">By default, student work is instantly marked by our built-in rules engine. To unlock deeper semantic evaluation and advanced corrections, paste a free Gemini API Key from Google AI Studio below. It will save securely inside your browser's private local cache.</p>
+        <div class="flex flex-col sm:flex-row gap-3 items-end">
+          <div class="flex-grow">
+            <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Your Gemini API Key</label>
+            <input type="password" id="settings-api-key" placeholder="AIzaSy..." class="w-full px-4 py-2 text-xs border border-slate-200 rounded-xl focus:ring-1 focus:ring-violet-500">
+          </div>
+          <button onclick="saveApiKeySettings()" class="bg-violet-600 hover:bg-violet-700 text-white font-semibold px-5 py-2 rounded-xl text-xs transition-colors h-[34px]">
+            Save Key
+          </button>
         </div>
       </div>
 
@@ -298,7 +316,7 @@
               <div class="flex items-center space-x-2">
                 <button onclick="triggerAIGrading()" id="ai-grade-btn" class="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold px-4 py-2 rounded-lg text-xs flex items-center space-x-1.5 shadow-sm transition-all">
                   <i data-lucide="sparkles" class="w-4 h-4"></i>
-                  <span>AI Auto-Grade Paper</span>
+                  <span>Trigger live AI Grade</span>
                 </button>
                 <button onclick="saveManualGrades()" class="bg-slate-800 hover:bg-slate-950 text-white font-semibold px-4 py-2 rounded-lg text-xs flex items-center space-x-1.5 transition-all">
                   <i data-lucide="save" class="w-4 h-4"></i>
@@ -479,6 +497,24 @@
     let allSubmissions = [];
     let selectedSubmissionId = null;
 
+    // Load saved settings (like local api key)
+    window.addEventListener("DOMContentLoaded", () => {
+      const savedKey = localStorage.getItem("teacher_gemini_api_key");
+      if (savedKey) {
+        const apiKeyEl = document.getElementById("settings-api-key");
+        if (apiKeyEl) apiKeyEl.value = savedKey;
+      }
+    });
+
+    window.saveApiKeySettings = function() {
+      const apiKeyEl = document.getElementById("settings-api-key");
+      if (apiKeyEl) {
+        const val = apiKeyEl.value.trim();
+        localStorage.setItem("teacher_gemini_api_key", val);
+        showFloatingToast("Gemini API Key saved successfully!", "success");
+      }
+    };
+
     // ----------------------------------------------------
     // BOOTSTRAP APP & LOAD EVENTS
     // ----------------------------------------------------
@@ -533,12 +569,14 @@
 
     function updateStatusBadge(online) {
       const badge = document.getElementById("system-status-badge");
-      if (online) {
-        badge.className = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800";
-        badge.innerHTML = `<span class="w-1.5 h-1.5 mr-1.5 rounded-full bg-emerald-500 animate-pulse"></span>Cloud Sync Active`;
-      } else {
-        badge.className = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-800";
-        badge.innerHTML = `<span class="w-1.5 h-1.5 mr-1.5 rounded-full bg-rose-500 animate-pulse"></span>Local Sandbox Mode`;
+      if (badge) {
+        if (online) {
+          badge.className = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800";
+          badge.innerHTML = `<span class="w-1.5 h-1.5 mr-1.5 rounded-full bg-emerald-500 animate-pulse"></span>Cloud Sync Active`;
+        } else {
+          badge.className = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-800";
+          badge.innerHTML = `<span class="w-1.5 h-1.5 mr-1.5 rounded-full bg-rose-500 animate-pulse"></span>Local Sandbox Mode`;
+        }
       }
     }
 
@@ -547,6 +585,7 @@
     // ----------------------------------------------------
     function buildExamQuestions() {
       const container = document.getElementById("questions-container");
+      if (!container) return;
       container.innerHTML = "";
       
       examQuestions.forEach((q, idx) => {
@@ -572,11 +611,14 @@
 
     // Progress updates
     window.handleAnswerInput = function(qId) {
-      const val = document.getElementById(`ans-${qId}`).value.trim();
-      if (val) {
-        studentAnswers[qId] = val;
-      } else {
-        delete studentAnswers[qId];
+      const el = document.getElementById(`ans-${qId}`);
+      if (el) {
+        const val = el.value.trim();
+        if (val) {
+          studentAnswers[qId] = val;
+        } else {
+          delete studentAnswers[qId];
+        }
       }
       updateExamProgress();
     };
@@ -584,9 +626,11 @@
     function updateExamProgress() {
       const answeredCount = Object.keys(studentAnswers).length;
       const totalCount = examQuestions.length;
-      document.getElementById("answered-fraction").innerText = `${answeredCount} / ${totalCount}`;
+      const fractEl = document.getElementById("answered-fraction");
+      if (fractEl) fractEl.innerText = `${answeredCount} / ${totalCount}`;
       const percentage = (answeredCount / totalCount) * 100;
-      document.getElementById("exam-progress").style.width = `${percentage}%`;
+      const progBar = document.getElementById("exam-progress");
+      if (progBar) progBar.style.width = `${percentage}%`;
     }
 
     // ----------------------------------------------------
@@ -603,21 +647,189 @@
     };
 
     // ----------------------------------------------------
+    // SMART RULES-BASED AUTO-GRADER
+    // ----------------------------------------------------
+    function runLocalAutoGrading(answers) {
+      const grades = {};
+      let totalScore = 0;
+
+      // Question 1(a) - Primary Storage (Max 2)
+      let q1a_ans = (answers["q1_a"] || "").toLowerCase();
+      let q1a_score = 0;
+      let q1a_match = 0;
+      if (q1a_ans.includes("cpu") || q1a_ans.includes("processor")) q1a_match++;
+      if (q1a_ans.includes("direct") || q1a_ans.includes("main") || q1a_ans.includes("temporary")) q1a_match++;
+      if (q1a_ans.includes("process") || q1a_ans.includes("execute") || q1a_ans.includes("currently")) q1a_match++;
+      if (q1a_match >= 2) q1a_score = 2;
+      else if (q1a_match === 1 || q1a_ans.length > 15) q1a_score = 1;
+      grades["q1_a"] = {
+        score: q1a_score,
+        feedback: q1a_score === 2 ? "Excellent and complete definition." : "Partial definition. Mention direct access by the CPU."
+      };
+      totalScore += q1a_score;
+
+      // Question 1(b) - Secondary Storage (Max 2)
+      let q1b_ans = (answers["q1_b"] || "").toLowerCase();
+      let q1b_score = 0;
+      let q1b_match = 0;
+      if (q1b_ans.includes("long-term") || q1b_ans.includes("long term") || q1b_ans.includes("permanent") || q1b_ans.includes("backing")) q1b_match++;
+      if (q1b_ans.includes("non-volatile") || q1b_ans.includes("non volatile") || q1b_ans.includes("turned off") || q1b_ans.includes("power off")) q1b_match++;
+      if (q1b_match >= 2) q1b_score = 2;
+      else if (q1b_match === 1 || q1b_ans.length > 15) q1b_score = 1;
+      grades["q1_b"] = {
+        score: q1b_score,
+        feedback: q1b_score === 2 ? "Great understanding of secondary storage characteristics." : "Ensure you identify non-volatility or backing storage roles."
+      };
+      totalScore += q1b_score;
+
+      // Question 2(a) - Volatile vs Non-Volatile (Max 2)
+      let q2a_ans = (answers["q2_a"] || "").toLowerCase();
+      let q2a_score = 0;
+      let q2a_match = 0;
+      if (q2a_ans.includes("volatile") && (q2a_ans.includes("lose") || q2a_ans.includes("lost") || q2a_ans.includes("temporary") || q2a_ans.includes("power"))) q2a_match++;
+      if (q2a_ans.includes("non") && (q2a_ans.includes("retain") || q2a_ans.includes("keep") || q2a_ans.includes("permanent") || q2a_ans.includes("not lost"))) q2a_match++;
+      if (q2a_match >= 2) q2a_score = 2;
+      else if (q2a_match === 1 || q2a_ans.length > 15) q2a_score = 1;
+      grades["q2_a"] = {
+        score: q2a_score,
+        feedback: q2a_score === 2 ? "Perfect distinction between memory types." : "Clarify power dependence characteristics."
+      };
+      totalScore += q2a_score;
+
+      // Question 2(b) - Examples (Max 2)
+      let q2b_ans = (answers["q2_b"] || "").toUpperCase();
+      let q2b_score = 0;
+      if (q2b_ans.includes("RAM") || q2b_ans.includes("CACHE") || q2b_ans.includes("REGISTER")) q2b_score++;
+      if (q2b_ans.includes("ROM")) q2b_score++;
+      grades["q2_b"] = {
+        score: q2b_score,
+        feedback: q2b_score === 2 ? "Both memory examples are correct." : "Propose RAM for volatile and ROM for non-volatile primary."
+      };
+      totalScore += q2b_score;
+
+      // Question 3 - RAM vs ROM (Max 6)
+      let q3_ans = (answers["q3"] || "").toLowerCase();
+      let q3_score = 0;
+      let q3_hits = 0;
+      if (q3_ans.includes("volatile")) q3_hits++;
+      if (q3_ans.includes("temporary") || q3_ans.includes("permanent")) q3_hits++;
+      if (q3_ans.includes("read") && q3_ans.includes("write")) q3_hits++;
+      if (q3_ans.includes("bios") || q3_ans.includes("boot") || q3_ans.includes("firmware")) q3_hits++;
+      if (q3_ans.includes("size") || q3_ans.includes("capacity")) q3_hits++;
+      q3_score = Math.min(6, Math.max(1, q3_hits * 2));
+      if (q3_ans.trim() === "" || q3_ans.includes("no answer")) q3_score = 0;
+      grades["q3"] = {
+        score: q3_score,
+        feedback: q3_score === 6 ? "Comprehensive comparisons provided." : "Contrast access speeds, standard capacity sizing, or read-write permissions."
+      };
+      totalScore += q3_score;
+
+      // Question 4 - Secondary Storage Categories & Examples (Max 6)
+      let q4_ans = (answers["q4"] || "").toLowerCase();
+      let q4_score = 0;
+      let q4_match = 0;
+      if (q4_ans.includes("magnetic") && (q4_ans.includes("hdd") || q4_ans.includes("hard disk") || q4_ans.includes("tape") || q4_ans.includes("floppy"))) q4_match += 2;
+      else if (q4_ans.includes("magnetic")) q4_match += 1;
+      if (q4_ans.includes("optical") && (q4_ans.includes("cd") || q4_ans.includes("dvd") || q4_ans.includes("blu-ray") || q4_ans.includes("bluray"))) q4_match += 2;
+      else if (q4_ans.includes("optical")) q4_match += 1;
+      if ((q4_ans.includes("solid state") || q4_ans.includes("flash")) && (q4_ans.includes("ssd") || q4_ans.includes("usb") || q4_ans.includes("sd card") || q4_ans.includes("pen drive"))) q4_match += 2;
+      else if (q4_ans.includes("solid state") || q4_ans.includes("flash")) q4_match += 1;
+      q4_score = Math.min(6, q4_match);
+      grades["q4"] = {
+        score: q4_score,
+        feedback: q4_score === 6 ? "Identified all core categories with solid examples." : "Differentiate Magnetic, Optical, and Solid State/Flash formats clearly."
+      };
+      totalScore += q4_score;
+
+      // Question 5 - ROM variations (Max 3)
+      let q5_ans = (answers["q5"] || "").toUpperCase();
+      let q5_score = 0;
+      if (q5_ans.includes("PROM")) q5_score++;
+      if (q5_ans.includes("EPROM")) q5_score++;
+      if (q5_ans.includes("EEPROM")) q5_score++;
+      grades["q5"] = {
+        score: q5_score,
+        feedback: q5_score === 3 ? "All programmable variants listed." : "State variants: PROM, EPROM, and EEPROM."
+      };
+      totalScore += q5_score;
+
+      // Question 6 - Backup preferred to primary (Max 3)
+      let q6_ans = (answers["q6"] || "").toLowerCase();
+      let q6_score = 0;
+      let q6_match = 0;
+      if (q6_ans.includes("non-volatile") || q6_ans.includes("non volatile") || q6_ans.includes("permanent") || q6_ans.includes("lose")) q6_match++;
+      if (q6_ans.includes("capacity") || q6_ans.includes("space") || q6_ans.includes("large")) q6_match++;
+      if (q6_ans.includes("cheap") || q6_ans.includes("cost") || q6_ans.includes("price") || q6_ans.includes("economical")) q6_match++;
+      if (q6_ans.includes("portable") || q6_ans.includes("transport") || q6_ans.includes("removable")) q6_match++;
+      q6_score = Math.min(3, q6_match);
+      if (q6_score === 0 && q6_ans.length > 20) q6_score = 1;
+      grades["q6"] = {
+        score: q6_score,
+        feedback: q6_score === 3 ? "Superb articulation of backing advantages." : "Consider arguments involving storage economics or physical device transport."
+      };
+      totalScore += q6_score;
+
+      // Question 7 - Scenario HD video (Max 4)
+      let q7_ans = (answers["q7"] || "").toLowerCase();
+      let q7_score = 0;
+      // (a) device check
+      if (q7_ans.includes("usb") || q7_ans.includes("flash") || q7_ans.includes("ssd") || q7_ans.includes("external")) q7_score++;
+      // (b) reasons
+      let q7b_match = 0;
+      if (q7_ans.includes("portable") || q7_ans.includes("pocket") || q7_ans.includes("carry")) q7b_match++;
+      if (q7_ans.includes("fast") || q7_ans.includes("speed")) q7b_match++;
+      if (q7_ans.includes("capacity") || q7_ans.includes("fit") || q7_ans.includes("large") || q7_ans.includes("gb")) q7b_match++;
+      q7_score += Math.min(2, q7b_match);
+      // (c) CD-ROM limitations
+      if (q7_ans.includes("700") || q7_ans.includes("small") || q7_ans.includes("limit") || q7_ans.includes("write") || q7_ans.includes("read-only") || q7_ans.includes("space")) q7_score++;
+      grades["q7"] = {
+        score: q7_score,
+        feedback: q7_score === 4 ? "Identified correct transfer options and limitations." : "Be certain to propose high speed/capacity media and reference CD size limits (700MB)."
+      };
+      totalScore += q7_score;
+
+      // Question 8 - Factors for I/O devices (Max 4)
+      let q8_ans = (answers["q8"] || "").toLowerCase();
+      let q8_score = 0;
+      let q8_match = 0;
+      if (q8_ans.includes("cost") || q8_ans.includes("price") || q8_ans.includes("budget") || q8_ans.includes("afford")) q8_match++;
+      if (q8_ans.includes("purpose") || q8_ans.includes("need") || q8_ans.includes("task") || q8_ans.includes("use")) q8_match++;
+      if (q8_ans.includes("compat") || q8_ans.includes("work with") || q8_ans.includes("port")) q8_match++;
+      if (q8_ans.includes("speed") || q8_ans.includes("performance") || q8_ans.includes("accuracy")) q8_match++;
+      if (q8_ans.includes("disabilit") || q8_ans.includes("special") || q8_ans.includes("blind") || q8_ans.includes("handicap")) q8_match++;
+      if (q8_ans.includes("environment") || q8_ans.includes("durable") || q8_ans.includes("depend")) q8_match++;
+      q8_score = Math.min(4, q8_match);
+      if (q8_score === 0 && q8_ans.length > 25) q8_score = 1;
+      grades["q8"] = {
+        score: q8_score,
+        feedback: q8_score === 4 ? "Perfect factors listed for peripherals selection." : "Mention compatibility, purchasing costs, accuracy or special accessibility specifications."
+      };
+      totalScore += q8_score;
+
+      return { grades, totalScore };
+    }
+
+    // ----------------------------------------------------
     // USER ACTIONS & LOGIN LOGIC
     // ----------------------------------------------------
     
     // Login: Student
     window.handleStudentLogin = function(e) {
       e.preventDefault();
-      const name = document.getElementById("student-name").value.trim();
-      const adm = document.getElementById("student-adm").value.trim();
+      const nameEl = document.getElementById("student-name");
+      const admEl = document.getElementById("student-adm");
+      if (!nameEl || !admEl) return;
+      const name = nameEl.value.trim();
+      const adm = admEl.value.trim();
       
       if (!name || !adm) return;
 
       activeStudent = { name, adm, id: `${adm}_${Date.now()}` };
       
-      document.getElementById("display-student-name").innerText = name;
-      document.getElementById("display-student-adm").innerText = `ADM: ${adm}`;
+      const dispName = document.getElementById("display-student-name");
+      const dispAdm = document.getElementById("display-student-adm");
+      if (dispName) dispName.innerText = name;
+      if (dispAdm) dispAdm.innerText = `ADM: ${adm}`;
       
       // Start Exam and countdown
       studentAnswers = {};
@@ -630,7 +842,9 @@
     // Login: Teacher
     window.handleTeacherLogin = function(e) {
       e.preventDefault();
-      const pass = document.getElementById("teacher-pass").value.trim();
+      const passEl = document.getElementById("teacher-pass");
+      if (!passEl) return;
+      const pass = passEl.value.trim();
       
       if (pass === "admin123") {
         switchScreen('screen-teacher-dashboard');
@@ -656,12 +870,17 @@
         } else {
           const minutes = Math.floor(secondsLeft / 60);
           const secs = secondsLeft % 60;
-          document.getElementById("exam-timer").innerText = 
-            `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-          
-          if (secondsLeft < 300) {
-            document.getElementById("exam-timer").parentElement.parentElement.classList.replace("bg-amber-50", "bg-rose-50");
-            document.getElementById("exam-timer").parentElement.parentElement.classList.replace("text-amber-900", "text-rose-900");
+          const timerEl = document.getElementById("exam-timer");
+          if (timerEl) {
+            timerEl.innerText = `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            
+            if (secondsLeft < 300) {
+              const parentBox = timerEl.parentElement ? timerEl.parentElement.parentElement : null;
+              if (parentBox) {
+                parentBox.classList.replace("bg-amber-50", "bg-rose-50");
+                parentBox.classList.replace("text-amber-900", "text-rose-900");
+              }
+            }
           }
         }
       }, 1000);
@@ -669,16 +888,21 @@
 
     // Exam Submission flow
     window.confirmSubmitExam = function() {
-      document.getElementById("modal-confirm").classList.remove("hidden");
+      const modal = document.getElementById("modal-confirm");
+      if (modal) modal.classList.remove("hidden");
     };
 
     window.closeConfirmModal = function() {
-      document.getElementById("modal-confirm").classList.add("hidden");
+      const modal = document.getElementById("modal-confirm");
+      if (modal) modal.classList.add("hidden");
     };
 
     window.submitStudentExam = async function() {
       closeConfirmModal();
       clearInterval(examTimerInterval);
+
+      // CRITICAL UPGRADE: Automatically grade the answers upon student submission!
+      const autoGradedResult = runLocalAutoGrading(studentAnswers);
 
       // Format answers package
       const payload = {
@@ -687,10 +911,10 @@
         adm: activeStudent.adm,
         timestamp: Date.now(),
         answers: studentAnswers,
-        isGraded: false,
-        grades: {},
-        totalScore: 0,
-        generalFeedback: ""
+        isGraded: true, // Now marked true because of Instant Local Auto-Marking
+        grades: autoGradedResult.grades,
+        totalScore: autoGradedResult.totalScore,
+        generalFeedback: "Automatically marked by System."
       };
 
       if (databaseActive && currentUser) {
@@ -706,9 +930,12 @@
       }
 
       // Show Success screen
-      document.getElementById("success-name").innerText = activeStudent.name;
-      document.getElementById("success-adm").innerText = activeStudent.adm;
-      document.getElementById("success-hash").innerText = `SUB-${activeStudent.id.substring(activeStudent.id.length - 8).toUpperCase()}`;
+      const succName = document.getElementById("success-name");
+      const succAdm = document.getElementById("success-adm");
+      const succHash = document.getElementById("success-hash");
+      if (succName) succName.innerText = activeStudent.name;
+      if (succAdm) succAdm.innerText = activeStudent.adm;
+      if (succHash) succHash.innerText = `SUB-${activeStudent.id.substring(activeStudent.id.length - 8).toUpperCase()}`;
       switchScreen('screen-success');
     };
 
@@ -745,26 +972,32 @@
     }
 
     function rebuildMetrics() {
-      document.getElementById("stat-total").innerText = allSubmissions.length;
+      const statTotal = document.getElementById("stat-total");
+      if (statTotal) statTotal.innerText = allSubmissions.length;
       
       const graded = allSubmissions.filter(s => s.isGraded);
-      document.getElementById("stat-pending").innerText = allSubmissions.length - graded.length;
+      const statPending = document.getElementById("stat-pending");
+      if (statPending) statPending.innerText = allSubmissions.length - graded.length;
+
+      const statAverage = document.getElementById("stat-average");
+      const statHighest = document.getElementById("stat-highest");
 
       if (graded.length > 0) {
         const totalSum = graded.reduce((sum, s) => sum + (s.totalScore || 0), 0);
         const avg = totalSum / graded.length;
-        document.getElementById("stat-average").innerText = `${avg.toFixed(1)} / 34`;
+        if (statAverage) statAverage.innerText = `${avg.toFixed(1)} / 34`;
 
         const max = Math.max(...graded.map(s => s.totalScore || 0));
-        document.getElementById("stat-highest").innerText = `${max} / 34`;
+        if (statHighest) statHighest.innerText = `${max} / 34`;
       } else {
-        document.getElementById("stat-average").innerText = "0.0 / 34";
-        document.getElementById("stat-highest").innerText = "0 / 34";
+        if (statAverage) statAverage.innerText = "0.0 / 34";
+        if (statHighest) statHighest.innerText = "0 / 34";
       }
     }
 
     function rebuildSubmissionsList() {
       const container = document.getElementById("submissions-list");
+      if (!container) return;
       container.innerHTML = "";
 
       if (allSubmissions.length === 0) {
@@ -778,7 +1011,8 @@
         return;
       }
 
-      document.getElementById("submission-count").innerText = `${allSubmissions.length} papers loaded`;
+      const countEl = document.getElementById("submission-count");
+      if (countEl) countEl.innerText = `${allSubmissions.length} papers loaded`;
 
       allSubmissions.forEach(sub => {
         const isSelected = selectedSubmissionId === sub.studentId;
@@ -812,18 +1046,25 @@
       const sub = allSubmissions.find(s => s.studentId === id);
       if (!sub) return;
 
-      document.getElementById("grading-pane-empty").classList.add("hidden");
-      document.getElementById("grading-pane-active").classList.add("flex");
-      document.getElementById("grading-pane-active").classList.remove("hidden");
+      const paneEmpty = document.getElementById("grading-pane-empty");
+      const paneActive = document.getElementById("grading-pane-active");
+      if (paneEmpty) paneEmpty.classList.add("hidden");
+      if (paneActive) {
+        paneActive.classList.add("flex");
+        paneActive.classList.remove("hidden");
+      }
 
-      document.getElementById("active-student-title").innerText = sub.name;
-      document.getElementById("active-student-meta").innerText = `ADM: ${sub.adm} | Submitted: ${new Date(sub.timestamp).toLocaleString()}`;
+      const activeTitle = document.getElementById("active-student-title");
+      const activeMeta = document.getElementById("active-student-meta");
+      if (activeTitle) activeTitle.innerText = sub.name;
+      if (activeMeta) activeMeta.innerText = `ADM: ${sub.adm} | Submitted: ${new Date(sub.timestamp).toLocaleString()}`;
 
       renderGradingQuestions(sub);
     };
 
     function renderGradingQuestions(sub) {
       const container = document.getElementById("grading-questions-list");
+      if (!container) return;
       container.innerHTML = "";
 
       examQuestions.forEach(q => {
@@ -875,13 +1116,21 @@
       }
     }
 
+    // Trigger AI Grading (Uses Gemini-2.5-flash with prompt containing marking scheme)
     window.triggerAIGrading = async function() {
       const sub = allSubmissions.find(s => s.studentId === selectedSubmissionId);
       if (!sub) return;
 
-      document.getElementById("ai-loading-overlay").classList.remove("hidden");
+      // Check for user-provided Gemini API Key first
+      const apiKey = localStorage.getItem("teacher_gemini_api_key") || "";
+      if (!apiKey) {
+        showFloatingToast("Please paste your Gemini API Key in the settings block above first!", "error");
+        return;
+      }
 
-      const apiKey = ""; 
+      const overlay = document.getElementById("ai-loading-overlay");
+      if (overlay) overlay.classList.remove("hidden");
+
       const prompt = `
         You are an expert Computer Studies examiner. Grade the student's exam answers against the provided marking scheme.
         
@@ -944,8 +1193,10 @@
         examQuestions.forEach(q => {
           const res = parsed.grades[q.id];
           if (res) {
-            document.getElementById(`grade-score-${q.id}`).value = Math.min(res.score, q.maxScore);
-            document.getElementById(`grade-feedback-${q.id}`).value = res.feedback;
+            const scoreEl = document.getElementById(`grade-score-${q.id}`);
+            const feedbackEl = document.getElementById(`grade-feedback-${q.id}`);
+            if (scoreEl) scoreEl.value = Math.min(res.score, q.maxScore);
+            if (feedbackEl) feedbackEl.value = res.feedback;
           }
         });
 
@@ -954,7 +1205,7 @@
         console.error("AI Grading failed:", err);
         showFloatingToast("AI Grading temporarily unavailable. Please assign scores manually.", "error");
       } finally {
-        document.getElementById("ai-loading-overlay").classList.add("hidden");
+        if (overlay) overlay.classList.add("hidden");
       }
     };
 
@@ -966,8 +1217,10 @@
       let calculatedTotal = 0;
 
       examQuestions.forEach(q => {
-        const score = parseInt(document.getElementById(`grade-score-${q.id}`).value) || 0;
-        const feedback = document.getElementById(`grade-feedback-${q.id}`).value.trim();
+        const scoreEl = document.getElementById(`grade-score-${q.id}`);
+        const feedbackEl = document.getElementById(`grade-feedback-${q.id}`);
+        const score = scoreEl ? parseInt(scoreEl.value) || 0 : 0;
+        const feedback = feedbackEl ? feedbackEl.value.trim() : "";
         
         const clampedScore = Math.max(0, Math.min(score, q.maxScore));
         calculatedTotal += clampedScore;
